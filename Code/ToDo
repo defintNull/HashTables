@@ -1,0 +1,10 @@
+
+
+PARAMETRI:
+    overflow
+    hashing
+    resizing
+    dimensione resizing constant
+    max_load_factor
+    batch del dynamicCopy
+    

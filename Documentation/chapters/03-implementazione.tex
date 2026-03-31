@@ -1,0 +1,213 @@
+\chapter{Implementazione}
+
+\section{Classe template}
+
+L'implementazione dell'algoritmo è stata effettuata in \texttt{C++}, attraverso l'utilizzo di una classe \texttt{template}, in modo da garantire l'utilizzo 
+della classe con diversi tipi di chiavi e dati.
+La classe è stata strutturata con degli enum in modo da andare a configurare opportunamente l'istanza con le strategie scelte per la hash table.
+
+\begin{lstlisting}[language=C++, caption=HashTable class]
+enum class OVERFLOW {
+    OPEN_ADDRESSING_LINEAR_PROBING,
+    OPEN_ADDRESSING_DOUBLE_HASHING,
+    CHAINING,
+    CUCKOO
+};
+enum class HASH {
+    MODE_1,
+    MODE_2
+};
+enum class RESIZE {
+    DOUBLE,
+    CONSTANT,
+    DYNAMIC
+};
+
+template <typename Tkey, typename Tvalue>
+class HashTable {
+    public:
+        HashTable(
+            OVERFLOW overflow = OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING,
+            HASH hash = HASH::MODE_1,
+            RESIZE resize = RESIZE::DOUBLE,
+            std::size_t table_length = 256,
+            double max_load_factor = 0.75
+        );
+}
+\end{lstlisting}
+
+
+\section{Hash}
+
+Per garantire un corretto funzionamento ed un corretto hashing al variare del tipo delle chiavi da inserire, queste vengono prima convertite 
+attraverso l'apposita funzione \texttt{KeyConvert} e successivamente hashate e gestite secondo la strategia di collisione selezionata:
+
+\begin{lstlisting}[language=C++, caption=KeyConvert function]
+template<typename K>
+struct KeyConvert {
+    static std::size_t hash(const K& key) {
+        if constexpr (std::is_integral_v<K> || std::is_same_v<K, char>) {
+            return static_cast<std::size_t>(key);
+        } else if constexpr (std::is_same_v<K, std::string>) {
+            // stringhe
+            std::size_t h = 0;
+            for (char c : key) h = h * 31 + static_cast<unsigned char>(c);
+            return h;
+        } else {
+            static_assert(sizeof(K) == 0, "Tipo non supportato");
+        }
+    }
+};
+\end{lstlisting}
+
+Il progetto utilizza tre diverse hash function, ciascuna con uno scopo specifico:
+
+\begin{enumerate}
+    \item \textbf{Prima hash function (\texttt{h1})}:  
+    Genera l'indice principale della tabella tramite l'operazione di \texttt{modulo} tra il valore hash della chiave e la lunghezza della tabella.
+
+    \begin{lstlisting}[language=C++, caption=First hash function]
+    template <typename Tkey, typename Tvalue>
+    std::size_t HashTable<Tkey, Tvalue>::h1(const Tkey& key) const {
+        std::size_t h = KeyConvert<Tkey>::hash(key);
+        // modulo table_length
+        return h % table_length;
+    }
+    \end{lstlisting}
+
+    \item \textbf{Seconda hash function (\texttt{h2})}:  
+    Può essere selezionata tramite apposito parametro durante la creazione della tabella.  
+    Viene utilizzata sia per l'hashing di base alternativo sia come seconda hash function nella strategia Cuckoo.  
+    Nel caso in cui sia selezionata per la seconda tabella della strategia Cuckoo, \texttt{h1} viene usata come fallback.
+    La funzione moltiplica il valore hash della chiave per una costante molto grande 
+    \texttt{a} e poi applica l’operazione di modulo con la lunghezza della tabella.  
+    Questo approccio genera una distribuzione più uniforme degli indici rispetto a h1.
+
+    \begin{lstlisting}[language=C++, caption=Second hash function]
+    template <typename Tkey, typename Tvalue>
+    std::size_t HashTable<Tkey, Tvalue>::h2(const Tkey& key) const {
+        std::size_t h = KeyConvert<Tkey>::hash(key);
+        constexpr std::size_t a = 11400714819323198485ull;
+        return (h * a) % table_length;
+    }
+    \end{lstlisting}
+
+    \item \textbf{Terza hash function (\texttt{h3})}:  
+    Specifica per la strategia di double hashing, calcola l’incremento di probing in caso di collisioni.  
+    La funzione utilizza un numero primo $R$ immediatamente inferiore alla dimensione della tabella per garantire che l’incremento e 
+    la lunghezza della tabella siano coprimi, così da poter esplorare tutte le posizioni dell’array.
+
+    \begin{lstlisting}[language=C++, caption=Hash function for double hashing]
+    template <typename Tkey, typename Tvalue>
+    std::size_t HashTable<Tkey, Tvalue>::h3(const Tkey& key) const {
+        std::size_t h = KeyConvert<Tkey>::hash(key);
+        std::size_t R = previousPrime(table_length - 1);
+        return R - (h % R); 
+    }
+    \end{lstlisting}
+\end{enumerate}
+
+In questo modo, la tabella può supportare diversi tipi di chiave e diverse strategie di collisione, 
+mantenendo le operazioni di inserimento, ricerca e cancellazione efficienti.
+
+
+\section{Data Structures}
+
+\subsection{Open Addressing}
+
+Per l'open addressing, la struttura dati utilizzata per l'implementazione della hash table è un \texttt{std::vector<Slot>}, 
+ovvero un vettore di oggetti \texttt{Slot}.  
+Ogni \texttt{Slot} è caratterizzato da due campi per la chiave e il valore, più un campo \texttt{state} 
+che indica se la cella è vuota, occupata o è stata rimossa.  
+Questo campo aggiuntivo è fondamentale per preservare la logica di ricerca dell'open addressing anche dopo la cancellazione di elementi.
+
+\begin{lstlisting}[language=C++, caption=Open Addressing Data Structure]
+enum class SlotState { EMPTY, OCCUPIED, DELETED };
+
+struct Slot {
+    SlotState state = SlotState::EMPTY;
+    Tkey key;
+    Tvalue value;
+};
+
+std::vector<Slot> table_open;
+\end{lstlisting}
+
+---
+
+\subsection{Chaining}
+
+Per il chaining, la struttura dati utilizzata è un \texttt{std::vector<std::vector<std::pair<Tkey, Tvalue>>>},  
+ovvero un vettore di vettori che rappresentano i bucket della tabella hash.  
+Ogni bucket contiene una lista di coppie chiave-valore corrispondenti agli elementi presenti, permettendo di gestire più elementi nella stessa posizione senza perdere dati.
+
+\begin{lstlisting}[language=C++, caption=Chaining Data Structure]
+std::vector<std::vector<std::pair<Tkey, Tvalue>>> table_chaining;
+\end{lstlisting}
+
+---
+
+\subsection{Cuckoo Hashing}
+
+Per il Cuckoo Hashing, la struttura dati è costituita da due \texttt{std::vector<Slot>}, duplicando la struttura utilizzata per l'open addressing.  
+Ogni \texttt{Slot} contiene la chiave, il valore e un campo che indica se la cella è vuota.  
+Le due tabelle separate consentono il funzionamento della strategia Cuckoo, dove ogni elemento può essere spostato da una tabella all'altra in caso di collisione.
+
+\begin{lstlisting}[language=C++, caption=Cuckoo Data Structure]
+std::vector<Slot> table_cuckoo_1;
+std::vector<Slot> table_cuckoo_2;
+\end{lstlisting}
+
+Durante l'inserimento, se la posizione calcolata tramite la prima funzione di hash è occupata, l'elemento presente viene espulso e 
+reinserito nella posizione corrispondente della seconda tabella, garantendo che ogni elemento abbia sempre due possibili posizioni.
+
+
+\section{Operazioni}
+
+Le seguenti funzioni rappresentano le principali operazioni disponibili nella classe \texttt{HashTable}:
+
+\begin{lstlisting}[language=C++, caption=Main Operations]
+public:
+    bool insert(const Tkey& key, const Tvalue& value);
+    bool update(const Tkey& key, const Tvalue& value);
+    bool remove(const Tkey& key);
+    bool exist(const Tkey& key);
+    std::optional<Tvalue> get(const Tkey& key);
+
+private:
+    bool resizeTable();
+    void dynamicCopy();
+    std::optional<std::size_t> find(const Tkey& key);
+    std::optional<std::size_t> _insert(const Tkey& key, const Tvalue& value);
+\end{lstlisting}
+
+Le operazioni principali offerte dalla struttura dati sono:
+
+\begin{itemize}
+    \item \textbf{insert}: inserisce una nuova coppia chiave-valore nella tabella. Se la chiave è già presente, 
+    l'operazione si comporta come una \texttt{update}.
+    
+    \item \textbf{update}: aggiorna il valore associato a una chiave esistente.
+    
+    \item \textbf{remove}: elimina un elemento dalla tabella, gestendo correttamente la struttura dati a seconda della strategia di collisione utilizzata.
+    
+    \item \textbf{exist}: verifica la presenza di una chiave all'interno della tabella.
+    
+    \item \textbf{get}: restituisce il valore associato a una chiave, se presente, utilizzando \texttt{std::optional} 
+    per gestire il caso in cui la chiave non esista.
+\end{itemize}
+
+Tutte le operazioni di accesso si appoggiano alla funzione interna \texttt{find}, che implementa la logica di ricerca in base alla strategia di risoluzione 
+delle collisioni selezionata (open addressing, chaining o cuckoo hashing).  
+Questa funzione restituisce la posizione dell'elemento, se presente, oppure un valore nullo in caso contrario.
+
+La funzione privata \texttt{\_insert} gestisce nel dettaglio la logica di inserimento, includendo la gestione delle collisioni e il posizionamento corretto 
+dell’elemento nella struttura dati.  
+Questa funzione viene utilizzata internamente da \texttt{insert} e può essere adattata a seconda della strategia adottata.
+
+Il fattore di carico della tabella viene monitorato durante le operazioni di inserimento: se il valore supera la soglia \texttt{max\_load\_factor}, 
+viene invocata la funzione \texttt{resizeTable}, che provvede ad aumentare la dimensione della tabella e a riorganizzare gli elementi.
+
+Nel caso della strategia \texttt{DYNAMIC}, il ridimensionamento non avviene in modo immediato: la funzione \texttt{dynamicCopy} viene utilizzata per 
+spostare progressivamente gli elementi dalla vecchia tabella a quella nuova, distribuendo il costo del resize su più operazioni e 
+migliorando le prestazioni complessive.

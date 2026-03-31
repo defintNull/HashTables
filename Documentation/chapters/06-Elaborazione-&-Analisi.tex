@@ -1,0 +1,535 @@
+\chapter{Elaborazione \& Analisi}
+
+\section{Elaborazione dei dati}
+
+I dati ottenuti durante la fase di testing, salvati nei file \texttt{hash\_data.csv} e \texttt{op\_data.csv} per il test con potenze di 10 e i file 
+\texttt{hash\_data\_double.csv} e \texttt{op\_data\_double.csv} per il test al raddoppio, sono stati successivamente rielaborati mediante l'utilizzo 
+del linguaggio Python. In particolare, sono state impiegate le librerie \texttt{pandas} per la manipolazione e l'analisi dei dati e \texttt{matplotlib.pyplot} per la generazione dei grafici.
+
+Sono stati sviluppati quattro script principali:
+\begin{itemize}
+    \item \texttt{grapher\_hash.py} e \texttt{grapher\_op.py}, dedicati all'analisi dei dati relativi a ciascuna singola tipologia;
+    \item \texttt{grapher\_mix\_hash.py} e \texttt{grapher\_mix\_op.py}, utilizzati per confrontare i risultati tra diverse tipologie di dati.
+\end{itemize}
+
+Per ciascuna tipologia di dati sono stati generati:
+\begin{itemize}
+    \item otto grafici relativi alle configurazioni della hashtable;
+    \item nove grafici dedicati all'analisi delle singole operazioni.
+\end{itemize}
+
+In aggiunta, sono stati realizzati cinque grafici complessivi che mettono a confronto le prestazioni tra le diverse tipologie di dati analizzate.
+
+Gli otto grafici relativi alla configurazione della hashtable sono:
+\begin{itemize}
+    \item \texttt{latency\_by\_hash\_strategy.pdf}
+    \item \texttt{latency\_by\_max\_load\_factor.pdf}
+    \item \texttt{latency\_by\_overflow\_strategy.pdf}
+    \item \texttt{latency\_by\_resize\_strategy.pdf}
+    \item \texttt{memory\_by\_hash\_strategy.pdf}
+    \item \texttt{memory\_by\_max\_load\_factor.pdf}
+    \item \texttt{memory\_by\_overflow\_strategy.pdf}
+    \item \texttt{memory\_by\_resize\_strategy.pdf}
+\end{itemize}
+
+I nove grafici relativi alle operazioni sono:
+\begin{itemize}
+    \item \texttt{key\_distribution\_by\_overflow.pdf}
+    \item \texttt{latency\_by\_operations\_hash\_strategy.pdf}
+    \item \texttt{latency\_by\_operations\_\&\_max\_load\_factor.pdf}
+    \item \texttt{latency\_by\_operations\_\&\_overflow\_strategy.pdf}
+    \item \texttt{latency\_by\_operations\_\&\_resize\_strategy.pdf}
+    \item \texttt{latency\_insert\_exist\_by\_load\_factor.pdf}
+    \item \texttt{memory\_by\_operations\_\&\_max\_load\_factor.pdf}
+    \item \texttt{memory\_by\_operations\_\&\_overflow\_strategy.pdf}
+    \item \texttt{memory\_by\_operations\_\&\_resize\_strategy.pdf}
+\end{itemize}
+
+I cinque grafici relativi alle tipologie sono:
+\begin{itemize}
+    \item \texttt{latency\_by\_keytype\_hash.pdf}
+    \item \texttt{latency\_by\_operations\_\&\_max\_load\_factor.pdf}
+    \item \texttt{latency\_by\_keytype\_\_overflow.pdf}
+    \item \texttt{latency\_by\_keytype\_resize.pdf}
+    \item \texttt{memory\_by\_keytype.pdf}
+    \item \texttt{latency\_by\_operation\_keytype\_elements.pdf}
+\end{itemize}
+
+\begin{lstlisting}[language=Python, caption=Esempio di script per la generazione di grafici]
+# -----------------------------
+# Latenza / Overflow
+# -----------------------------
+df = pd.read_csv(path)
+
+# -----------------------------
+# Calcola media, minimo e massimo per gruppo
+# -----------------------------
+stats = (
+    df.groupby(["OVERFLOW", "Elements"])["Latenza"]
+    .agg(["mean", "min", "max"])
+    .reset_index()
+)
+
+# -----------------------------
+# Crea la figura
+# -----------------------------
+plt.figure(figsize=(10,6))
+colors = plt.cm.tab10.colors
+
+# -----------------------------
+# Plot per ogni gruppo di 'Elements'
+# -----------------------------
+x_labels = sorted(stats["OVERFLOW"].unique())
+n_groups = len(stats["Elements"].unique())
+width = 0.15
+
+for i, elements in enumerate(sorted(stats["Elements"].unique())):
+    subset = stats[stats["Elements"] == elements]
+
+    x_num = [x_labels.index(x_val) for x_val in subset["OVERFLOW"]]
+    offset = (i - (n_groups-1)/2) * width
+    x_dodge = [x + offset for x in x_num]
+
+    y = subset["mean"]
+    err_low = y - subset["min"]
+    err_high = subset["max"] - y
+
+    plt.errorbar(
+        x_dodge,
+        y,
+        yerr=[err_low, err_high],
+        fmt="o",
+        label=f"Elements = {elements}",
+        color=colors[i % len(colors)],
+        capsize=4
+    )
+
+# -----------------------------
+# Migliora la leggibilità
+# -----------------------------
+plt.xticks(range(len(x_labels)), x_labels, rotation=30, ha="right")
+plt.xlabel("Overflow Strategy")
+plt.ylabel("Average Latency [s]")
+plt.title("Latency by Overflow Strategy")
+plt.grid(True, axis="y")
+plt.legend()
+\end{lstlisting}
+
+\section{Analisi dei dati}
+
+L'analisi dei dati si concentra principalmente su due metriche fondamentali:
+\begin{itemize}
+    \item la latenza delle operazioni e dei task eseguiti;
+    \item l'impatto sull'utilizzo della memoria.
+\end{itemize}
+
+L'obiettivo è valutare come le diverse configurazioni della hashtable influenzino le prestazioni complessive.
+
+\subsection{Hash Data}
+
+In questa sezione vengono analizzati i risultati relativi alle diverse configurazioni della hashtable.  
+In particolare, si osserva l'influenza dei seguenti parametri:
+\begin{itemize}
+    \item strategia di HASHING;
+    \item fattore di carico massimo (\textit{MAX LOAD FACTOR});
+    \item strategia di gestione delle collisioni (\textit{OVERFLOW});
+    \item politica di ridimensionamento (\textit{RESIZE}).
+\end{itemize}
+
+\subsubsection{Latenza}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/latency_by_overflow_strategy.pdf}
+    \caption{Latenza in funzione della strategia di gestione delle collisioni (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/latency_by_overflow_strategy.pdf}
+    \caption{Latenza in funzione della strategia di gestione delle collisioni (Integer e doubling)}
+\end{figure}
+
+Dai grafici della latenza relativi alle strategie di OVERFLOW si evince che il tempo necessario a completare le operazioni rimane complessivamente 
+simile al variare delle diverse tecniche.  
+Un'eccezione è rappresentata dal metodo DOUBLE HASHING, che all'aumentare del numero di chiavi tende a peggiorare sia in termini di latenza media 
+sia nei picchi massimi.
+
+Tra i quattro metodi analizzati, CUCKOO e CHAINING mostrano inoltre una maggiore stabilità, con oscillazioni della latenza più contenute rispetto 
+ai metodi di OPEN ADDRESSING.
+
+Dal grafico generato dal doubling test inoltre si evince che la latenza circa raddoppia al raddoppiare della dimensione dell'input.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/latency_by_resize_strategy.pdf}
+    \caption{Latenza in funzione della strategia di RESIZE (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/latency_by_resize_strategy.pdf}
+    \caption{Latenza in funzione della strategia di RESIZE (Integer e doubling)}
+\end{figure}
+
+Per quanto concerne la latenza in relazione alle strategie di RESIZE, si osserva un comportamento coerente con le aspettative teoriche.  
+La strategia CONSTANT risulta la meno efficiente: all'aumentare del numero di elementi, e quindi allontanandosi dalla dimensione iniziale fissata, 
+le prestazioni peggiorano sensibilmente.
+
+Le strategie DOUBLE e DYNAMIC presentano invece prestazioni complessivamente simili, con una latenza media leggermente migliore nel caso della strategia DOUBLE.
+
+Dal grafico generato dal doubling test inoltre si evince che la latenza circa raddoppia al raddoppiare della dimensione dell'input.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/latency_by_hash_strategy.pdf}
+    \caption{Latenza in funzione della strategia di HASHING (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/latency_by_hash_strategy.pdf}
+    \caption{Latenza in funzione della strategia di HASHING (Integer e doubling)}
+\end{figure}
+
+Per quanto riguarda le due strategie di HASHING considerate, si osserva una differenza marcata: la prima risulta nettamente più efficiente 
+in termini di latenza rispetto alla seconda.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/latency_by_max_load_factor_strategy.pdf}
+    \caption{Latenza in funzione del MAX LOAD FACTOR (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/latency_by_max_load_factor_strategy.pdf}
+    \caption{Latenza in funzione del MAX LOAD FACTOR (Integer e doubling)}
+\end{figure}
+
+Il MAX LOAD FACTOR sembra influire in maniera limitata sulla latenza complessiva: le differenze osservate tra le varie configurazioni risultano contenute.
+
+\subsubsection{Memoria}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/memory_by_overflow_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di gestione delle collisioni (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/memory_by_overflow_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di gestione delle collisioni (Integer e doubling)}
+\end{figure}
+
+A differenza della latenza, l'utilizzo della memoria varia in modo significativo tra le diverse strategie.  
+I metodi CHAINING e CUCKOO richiedono una quantità di memoria sensibilmente maggiore rispetto alle tecniche di OPEN ADDRESSING, 
+sia in media sia nei picchi massimi delle singole esecuzioni.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/memory_by_resize_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di RESIZE (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/memory_by_resize_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di RESIZE (Integer e doubling)}
+\end{figure}
+
+Per quanto riguarda le strategie di RESIZE, si osserva che il metodo CONSTANT tende a occupare più memoria rispetto agli altri due approcci.  
+Tra DOUBLE e DYNAMIC, il primo mostra in media un comportamento leggermente più efficiente.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/memory_by_hash_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di HASHING (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/memory_by_hash_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione della strategia di HASHING (Integer e doubling)}
+\end{figure}
+
+La strategia di HASHING influisce in modo rilevante sull'utilizzo della memoria.  
+In particolare, si osserva un comportamento opposto rispetto alla latenza: la seconda strategia risulta più efficiente della prima 
+dal punto di vista dell'occupazione di memoria.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{hash_graphs/memory_by_max_load_factor_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione del MAX LOAD FACTOR (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/hash_graphs/memory_by_max_load_factor_strategy.pdf}
+    \caption{Utilizzo della memoria in funzione del MAX LOAD FACTOR (Integer e doubling)}
+\end{figure}
+
+Il MAX LOAD FACTOR, come atteso, incide in modo diretto sull'utilizzo della memoria: valori più bassi comportano un maggiore consumo di spazio, 
+mentre configurazioni standard o elevate risultano più efficienti.
+
+\paragraph{Sintesi dei risultati}
+
+Dall'analisi complessiva emerge come le diverse configurazioni della hashtable influenzino in maniera differente le metriche considerate, 
+evidenziando un compromesso tra latenza e utilizzo della memoria.
+
+Per quanto riguarda la latenza, le strategie di OVERFLOW mostrano comportamenti generalmente simili, ad eccezione del DOUBLE HASHING, 
+che tende a degradare all'aumentare del numero di chiavi. Le tecniche CUCKOO e CHAINING garantiscono invece una maggiore stabilità.  
+Tra le politiche di RESIZE, la strategia CONSTANT risulta inefficiente, mentre DOUBLE e DYNAMIC offrono prestazioni comparabili, 
+con un leggero vantaggio per DOUBLE. La scelta della funzione di HASHING risulta determinante, mentre il MAX LOAD FACTOR ha un impatto limitato.
+Generalmente inoltre si evince un andamento della latenza che tende a raddoppiare al raddoppio della dimensione dell'input.
+
+Dal punto di vista della memoria, emergono differenze più marcate: CHAINING e CUCKOO risultano più costosi rispetto all'OPEN ADDRESSING, 
+mentre la strategia CONSTANT comporta un maggiore utilizzo di memoria rispetto alle alternative. Inoltre, la seconda strategia di HASHING 
+si dimostra più efficiente, evidenziando un comportamento opposto rispetto alla latenza.
+
+In sintesi, non esiste una configurazione universalmente ottimale: la scelta dipende dal contesto applicativo e dai vincoli specifici. 
+Tuttavia, l'utilizzo della strategia DOUBLE per il RESIZE e una scelta accurata della funzione di HASHING rappresentano, in generale, 
+un buon compromesso tra efficienza e stabilità.
+
+\subsection{Operation Data}
+
+Questa sezione è dedicata all'analisi delle singole operazioni sulla hashtable (inserimento, ricerca, aggiornamento e cancellazione).  
+Viene studiato il comportamento delle operazioni al variare delle diverse configurazioni, con particolare attenzione a:
+\begin{itemize}
+    \item distribuzione delle chiavi;
+    \item strategia di hashing;
+    \item fattore di carico massimo (\textit{max load factor});
+    \item strategia di gestione delle collisioni (\textit{overflow});
+    \item politica di ridimensionamento (\textit{resize}).
+\end{itemize}
+
+\subsubsection{Latenza}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{op_graphs/latency_by_operations_&_overflow_strategy.pdf}
+    \caption{Latenza per operazione in funzione della strategia di gestione delle collisioni (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/op_graphs/latency_by_operations_&_overflow_strategy.pdf}
+    \caption{Latenza per operazione in funzione della strategia di gestione delle collisioni (Integer e doubling)}
+\end{figure}
+
+Dal grafico si osserva come l'operazione di \textit{insert} presenti generalmente una latenza superiore rispetto alle altre. 
+Ciò è dovuto al controllo del \textit{load factor} e alla possibile necessità di effettuare operazioni di \textit{resize}, che introducono un costo aggiuntivo.
+
+Tra le diverse strategie di gestione delle collisioni, il \textit{double hashing} mostra prestazioni significativamente peggiori 
+su tutte le operazioni, in particolare sull'inserimento, dove il costo delle sonde multiple incide maggiormente.
+
+Le strategie \textit{cuckoo hashing} e \textit{chaining} evidenziano prestazioni complessivamente simili. Tuttavia, si nota che:
+\begin{itemize}
+    \item il \textit{cuckoo hashing} presenta picchi leggermente più contenuti per l'operazione di insert all'aumentare del numero di chiavi;
+    \item il \textit{chaining} risulta leggermente più stabile nelle operazioni di ricerca, aggiornamento e cancellazione.
+\end{itemize}
+
+L'\textit{open addressing} con probing lineare, pur mostrando una latenza media comparabile alle precedenti strategie, 
+presenta prestazioni peggiori per dataset di piccole dimensioni. Tuttavia, al crescere del numero di chiavi, mostra una maggiore stabilità 
+e una crescita più controllata della latenza.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{op_graphs/latency_by_operations_&_resize_strategy.pdf}
+    \caption{Latenza per operazione in funzione della strategia di ridimensionamento (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/op_graphs/latency_by_operations_&_resize_strategy.pdf}
+    \caption{Latenza per operazione in funzione della strategia di ridimensionamento (Integer e doubling)}
+\end{figure}
+
+L'analisi delle politiche di \textit{resize} evidenzia come la strategia \textit{constant} comporti latenze medie e picchi significativamente 
+superiori rispetto alle altre. Questo è dovuto alla maggiore frequenza di ridimensionamenti o alla loro scarsa efficienza.
+
+Le strategie \textit{double} e \textit{dynamic} mostrano invece prestazioni medie simili. Tuttavia:
+\begin{itemize}
+    \item la strategia \textit{dynamic} garantisce una maggiore stabilità complessiva;
+    \item la strategia \textit{double} presenta picchi più marcati, soprattutto all'aumentare del numero di chiavi.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{op_graphs/latency_by_operation_hash_strategy.pdf}
+    \caption{Latenza per operazione in funzione della funzione di hash (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/op_graphs/latency_by_operation_hash_strategy.pdf}
+    \caption{Latenza per operazione in funzione della funzione di hash (Integer e doubling)}
+\end{figure}
+
+Il confronto tra le due funzioni di hash mostra che la prima strategia risulta più efficiente sia in termini di latenza media sia nei picchi massimi, 
+soprattutto su dataset di grandi dimensioni.
+
+La seconda funzione di hash, pur essendo meno performante in media, mostra risultati leggermente migliori nel caso di dataset molto piccoli, 
+dove il costo computazionale della funzione ha un impatto più rilevante rispetto alla distribuzione delle chiavi.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{op_graphs/latency_by_operations_&_max_load_factor.pdf}
+    \caption{Latenza per operazione in funzione del max load factor (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/op_graphs/latency_by_operations_&_max_load_factor.pdf}
+    \caption{Latenza per operazione in funzione del max load factor (Integer e doubling)}
+\end{figure}
+
+Le prestazioni in funzione del \textit{max load factor} risultano nel complesso simili tra le diverse configurazioni. Tuttavia, emergono alcune differenze:
+\begin{itemize}
+    \item un \textit{load factor} basso (\textit{LOW}) garantisce maggiore stabilità nelle varie operazioni;
+    \item valori più elevati (\textit{STANDARD} e \textit{HIGH}) offrono migliori prestazioni medie nell'operazione di insert, 
+    grazie a un minor numero di ridimensionamenti.
+\end{itemize}
+
+Questo evidenzia il classico trade-off tra utilizzo della memoria e prestazioni.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{op_graphs/latency_insert_exist_by_load_factor_&_all_overflows.pdf}
+    \caption{Latenza delle'operazioni di insert e get al variare del load factor e della strategia di overflow (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/op_graphs/latency_insert_exist_by_load_factor_&_all_overflows.pdf}
+    \caption{Latenza delle'operazioni di insert e get al variare del load factor e della strategia di overflow (Integer e doubling)}
+\end{figure}
+
+Le strategie \textit{chaining} e \textit{cuckoo hashing} mantengono latenze inferiori e più stabili, mentre il \textit{double hashing} 
+continua a mostrare prestazioni peggiori.
+
+In generale, l'aumento del \textit{load factor} tende a penalizzare maggiormente le tecniche basate su \textit{open addressing}, 
+a causa dell'incremento delle collisioni e del numero medio di sonde necessarie.
+
+\paragraph{Sintesi dei risultati}
+
+L'analisi della latenza delle operazioni evidenzia come le prestazioni di una hashtable dipendano in modo significativo dall'interazione 
+tra strategia di gestione delle collisioni, politica di ridimensionamento e valore del \textit{max load factor}.
+
+In generale, le operazioni di inserimento risultano le più costose, principalmente a causa del controllo del fattore di carico e delle eventuali 
+operazioni di \textit{resize}. Tra le strategie di \textit{overflow}, il \textit{double hashing} si dimostra la meno efficiente, mostrando latenze 
+elevate e scarsa scalabilità. Al contrario, \textit{chaining} e \textit{cuckoo hashing} offrono un buon compromesso tra prestazioni medie e stabilità, 
+mentre il probing lineare risulta più sensibile alla dimensione del dataset ma garantisce una crescita della latenza più regolare.
+
+Per quanto riguarda il \textit{resize}, strategie adattive come la \textit{dynamic} permettono di contenere i picchi di latenza, risultando 
+complessivamente più robuste rispetto a strategie più semplici come la \textit{constant}. Anche la scelta della funzione di hash incide in modo rilevante: 
+una buona distribuzione delle chiavi diventa sempre più critica all'aumentare della dimensione dei dati.
+
+Infine, il \textit{max load factor} introduce un chiaro compromesso tra efficienza temporale e utilizzo della memoria: valori bassi migliorano 
+la stabilità e riducono le collisioni, mentre valori più elevati riducono la frequenza dei ridimensionamenti ma possono degradare le prestazioni 
+nelle tecniche di \textit{open addressing}.
+
+Complessivamente, i risultati suggeriscono che non esiste una configurazione ottimale in senso assoluto, ma che la scelta dei parametri debba essere 
+guidata dal contesto applicativo, dal volume dei dati e dai requisiti di prestazione.
+
+
+\subsection{Mixed Data}
+
+In questa sezione vengono analizzati cinque grafici complessivi che confrontano direttamente le prestazioni delle diverse tipologie di dati.
+
+L'obiettivo è valutare il comportamento della hashtable al variare del tipo di input, evidenziando eventuali differenze in termini di 
+latenza e utilizzo della memoria.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{mix_graphs/latency_by_keytype_overflow.pdf}
+    \caption{Latenza per operazione in funzione della strategia di gestione delle collisioni, suddivisa per tipo di chiave. (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/mix_graphs/latency_by_keytype_overflow.pdf}
+    \caption{Latenza per operazione in funzione della strategia di gestione delle collisioni, suddivisa per tipo di chiave. (Integer e doubling)}
+\end{figure}
+
+Dal grafico emerge chiaramente che le chiavi di tipo \textit{Integer} garantiscono le migliori prestazioni complessive.  
+Le \textit{String} generate casualmente presentano latenze leggermente superiori, ma la differenza rispetto agli \textit{Integer} è minima.  
+Al contrario, le chiavi basate su \textit{Real Words} mostrano latenze significativamente più elevate, probabilmente a causa di una distribuzione 
+meno uniforme che genera più collisioni.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{mix_graphs/latency_by_keytype_resize.pdf}
+    \caption{Latenza per operazione in funzione della strategia di \textit{resize}, suddivisa per tipo di chiave. (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/mix_graphs/latency_by_keytype_resize.pdf}
+    \caption{Latenza per operazione in funzione della strategia di \textit{resize}, suddivisa per tipo di chiave. (Integer e doubling)}
+\end{figure}
+
+Risultati analoghi si osservano analizzando la strategia di \textit{resize}.  
+Gli \textit{Integer} mantengono prestazioni superiori, seguiti dalle \textit{String} casuali. Le chiavi basate su \textit{Real Words} mostrano 
+latenze sensibilmente più alte, confermando il maggiore impatto delle collisioni su dataset meno uniformi.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{mix_graphs/latency_by_keytype_hash.pdf}
+    \caption{Latenza per operazione in funzione della funzione di hash, suddivisa per tipo di chiave. (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/mix_graphs/latency_by_keytype_hash.pdf}
+    \caption{Latenza per operazione in funzione della funzione di hash, suddivisa per tipo di chiave. (Integer e doubling)}
+\end{figure}
+
+Anche la scelta della funzione di hash evidenzia la stessa tendenza: le chiavi \textit{Integer} ottimizzano la distribuzione, riducendo le collisioni 
+e quindi la latenza, mentre le \textit{Real Words} risultano più penalizzate.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{mix_graphs/latency_by_operation_keytype_elements.pdf}
+    \caption{Latenza per singola operazione in funzione del tipo di chiave e del numero di elementi. (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/mix_graphs/latency_by_operation_keytype_elements.pdf}
+    \caption{Latenza per singola operazione in funzione del tipo di chiave e del numero di elementi. (Integer e doubling)}
+\end{figure}
+
+A livello delle singole operazioni, le prestazioni confermano quanto osservato precedentemente.  
+Si nota un leggero vantaggio dell'approccio ibrido (\textit{Hybrid}) nell'operazione di \textit{insert}, rispetto alle strategie full stringa, 
+grazie a una combinazione più efficiente di tipi di chiave.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{mix_graphs/memory_by_key_type.pdf}
+    \caption{Memoria media utilizzata in funzione del tipo di chiave. (Integer e potenza di 10)}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{doubling/mix_graphs/memory_by_key_type.pdf}
+    \caption{Memoria media utilizzata in funzione del tipo di chiave. (Integer e doubling)}
+\end{figure}
+
+L'analisi della memoria evidenzia che gli \textit{Integer} richiedono meno spazio, seguiti dall'approccio ibrido, mentre le \textit{String} 
+complete risultano le più costose in termini di consumo di memoria.
+
+\paragraph{Sintesi dei risultati}
+
+Dall'analisi dei grafici emerge chiaramente come il tipo di chiave influisca in modo determinante sulle prestazioni della hashtable.  
+Gli \textit{Integer} offrono i migliori risultati sia in termini di latenza sia di memoria utilizzata, grazie alla loro natura semplice e 
+alla distribuzione uniforme.  
+Le \textit{String} casuali mantengono prestazioni simili ma leggermente peggiori, mentre le chiavi basate su \textit{Real Words} 
+risultano più penalizzate a causa di collisioni più frequenti e maggiore overhead di memoria.
+
+L'approccio ibrido rappresenta un buon compromesso, combinando la compattezza degli \textit{Integer} con la flessibilità delle \textit{String}, 
+offrendo un leggero miglioramento nelle operazioni di inserimento rispetto alle strategie full stringa.
+
+In generale, i risultati suggeriscono che la scelta del tipo di chiave deve essere guidata dal contesto applicativo e dai requisiti di prestazione, 
+privilegiando tipologie più compatte e uniformi quando si cerca massima efficienza.

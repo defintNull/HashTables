@@ -1,0 +1,38 @@
+\chapter{Conclusioni}
+
+Il lavoro svolto ha permesso di analizzare in maniera sistematica le prestazioni delle hashtable in relazione a diversi tipi di chiave, 
+configurazioni e politiche di gestione delle collisioni e del ridimensionamento.  
+L'approccio adottato ha combinato raccolta dati sperimentali, rielaborazione tramite Python e visualizzazione grafica, permettendo di confrontare 
+in modo chiaro e dettagliato i risultati ottenuti.
+
+Dall'analisi emerge come le prestazioni di una hashtable dipendano in maniera significativa da molteplici fattori, tra cui:
+\begin{itemize}
+    \item il tipo di chiave utilizzata (\textit{Integer}, \textit{String} casuali, \textit{Real Words}, o approccio \textit{Hybrid});
+    \item la strategia di gestione delle collisioni (\textit{open addressing}, \textit{chaining}, \textit{cuckoo hashing}, ecc.);
+    \item la politica di ridimensionamento (\textit{resize}) e il fattore di carico massimo (\textit{max load factor});
+    \item la funzione di hash scelta per distribuire le chiavi.
+\end{itemize}
+
+In particolare, le osservazioni principali possono essere sintetizzate come segue:
+
+\begin{itemize}
+    \item \textbf{Tipo di chiave}: le chiavi di tipo \textit{Integer} garantiscono le migliori prestazioni sia in termini di latenza sia di utilizzo 
+    della memoria, grazie alla loro semplicità e alla distribuzione uniforme. Le \textit{String} casuali presentano prestazioni leggermente inferiori, 
+    mentre le \textit{Real Words} risultano più penalizzate. L'approccio \textit{Hybrid} si conferma un buon compromesso, combinando efficienza e flessibilità.
+    
+    \item \textbf{Strategia di gestione delle collisioni}: le tecniche di \textit{chaining} e \textit{cuckoo hashing} offrono prestazioni stabili e affidabili, 
+    mentre il \textit{double hashing} tende a mostrare latenze maggiori, soprattutto con dataset di grandi dimensioni. L'\textit{open addressing} 
+    è più sensibile al numero di chiavi, ma garantisce una crescita controllata della latenza.
+    
+    \item \textbf{Politica di ridimensionamento e max load factor}: strategie adattive come \textit{dynamic resize} permettono di contenere i picchi di latenza, 
+    risultando più robuste rispetto a strategie fisse come \textit{constant}. Valori elevati del \textit{max load factor} migliorano le prestazioni 
+    medie riducendo i ridimensionamenti, mentre valori bassi aumentano la stabilità a discapito della memoria.
+    
+    \item \textbf{Funzione di hash}: la scelta della funzione di hash influenza significativamente la distribuzione delle chiavi e, di conseguenza, 
+    la latenza delle operazioni. Funzioni più efficienti garantiscono una minor incidenza delle collisioni e una maggiore uniformità nelle prestazioni.
+\end{itemize}
+
+In sintesi, non esiste una configurazione universalmente ottimale: la scelta della struttura e dei parametri della hashtable deve essere guidata dal contesto 
+applicativo, dal volume dei dati e dai requisiti di prestazione.  
+I risultati ottenuti evidenziano come combinare chiavi compatte e uniformi, una politica di ridimensionamento efficiente e una funzione di hash 
+appropriata rappresenti il compromesso ideale tra latenza e utilizzo della memoria.

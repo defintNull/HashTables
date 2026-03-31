@@ -1,0 +1,288 @@
+\chapter{Testing}
+
+Per la fase di testing sono state sviluppate quattro diverse implementazioni, una per ciascun tipo di dato precedentemente descritto, 
+ciascuna organizzata all'interno della rispettiva cartella.
+
+Sono stati condotti due test distinti: il primo analizza l’andamento delle prestazioni al crescere della dimensione dell’input, considerando 
+valori pari alle potenze di 10; il secondo, invece, studia l’evoluzione degli stessi parametri al raddoppio della dimensione dell’input.
+
+Nel seguito viene presentata la struttura e le scelte adottate per il test basato sulle potenze di 10; tuttavia, le considerazioni risultano 
+valide anche per il test con incremento per raddoppio.
+
+\section{Metriche}
+
+Durante l'esecuzione dei test vengono generati due file distinti:
+
+\begin{lstlisting}[language=C++, caption=File di output dei test]
+std::pair<std::ofstream, std::ofstream> setup() {
+    std::ofstream op_file("op_data.csv");
+    std::ofstream hash_file("hash_data.csv");
+
+    // Intestazione
+    op_file << "OVERFLOW,HASH,RESIZE,Elements,Max_load_factor,Operazione,Latenza,Load_factor,Memoria,Key_distribution\n";
+    hash_file << "OVERFLOW,HASH,RESIZE,Elements,Max_load_factor,Latenza,Memoria\n";
+
+    return {std::move(op_file), std::move(hash_file)};
+}
+\end{lstlisting}
+
+Il file \texttt{hash\_data.csv} contiene informazioni aggregate relative a ciascuna istanza di test, memorizzando le caratteristiche della configurazione 
+utilizzata (strategia di gestione delle collisioni, funzione di hash, politica di resize, numero di elementi e fattore di carico massimo) 
+insieme a metriche prestazionali globali quali latenza complessiva e memoria utilizzata.
+
+Il file \texttt{op\_data.csv}, invece, raccoglie informazioni a grana fine per ogni singola operazione eseguita su ciascuna istanza. 
+Per ogni operazione vengono registrati il tipo di istanza, la tipologia di operazione eseguita, la latenza, la memoria occupata, 
+il fattore di carico corrente e un indice di distribuzione delle chiavi.
+
+La latenza viene misurata come tempo CPU utilizzando la funzione \texttt{clock\_gettime} con clock \texttt{CLOCK\_PROCESS\_CPUTIME\_ID}, 
+che consente di ottenere una misura stabile del tempo di esecuzione del processo, riducendo l'influenza di fattori esterni.
+
+\subsection*{Distribuzione delle chiavi}
+
+La distribuzione delle chiavi viene stimata mediante metriche differenti a seconda della strategia di gestione delle collisioni adottata:
+
+\begin{itemize}
+    \item \textbf{Open Addressing (Linear Probing e Double Hashing)}: viene calcolata la dimensione media dei cluster. Un cluster è definito 
+    come una sequenza contigua di celle occupate. L'algoritmo identifica tali sequenze, ne calcola la lunghezza e restituisce la media tra tutte 
+    le lunghezze osservate. Valori elevati indicano la presenza di fenomeni di clustering, generalmente associati a un peggioramento delle prestazioni.
+
+    \item \textbf{Chaining}: viene calcolata la deviazione standard della lunghezza dei bucket. Questa misura consente di valutare quanto 
+    uniformemente gli elementi siano distribuiti tra le liste: valori bassi indicano una distribuzione omogenea, mentre valori elevati 
+    evidenziano squilibri tra i bucket.
+
+    \item \textbf{Cuckoo Hashing}: viene adottato un approccio analogo all'open addressing, calcolando la dimensione media dei cluster su entrambe 
+    le tabelle hash utilizzate dalla struttura. Le due tabelle vengono considerate congiuntamente nel processo di individuazione dei cluster.
+\end{itemize}
+
+Si osserva che le metriche adottate non sono direttamente confrontabili tra le diverse strategie, ma risultano utili per analizzare il comportamento 
+interno di ciascun metodo.
+
+\section{Struttura dei test}
+
+Il test esegue una routine variando, per ogni iterazione, il valore del \texttt{load\_factor}. In particolare, vengono considerate tre configurazioni:
+\begin{itemize}
+    \item valore standard (consigliato per la struttura),
+    \item valore inferiore,
+    \item valore superiore.
+\end{itemize}
+
+\begin{lstlisting}[language=C++, caption=Test con differenti load factor]
+std::pair<std::ofstream, std::ofstream> files = setup();
+
+for(int x=0; x<5; x++) {
+    // Standard load factor
+    for(int i=1; i<5; i++) {
+        std::cout << "-----------------------------" <<std::endl;
+        std::cout << "ELEMENT COUNT: " << std::pow(10, i) <<std::endl;
+        std::cout << "-----------------------------" <<std::endl;
+        intTest(std::pow(10, i), files);
+    }
+
+    // Low load factor
+    for(int i=1; i<5; i++) {
+        std::cout << "-----------------------------" <<std::endl;
+        std::cout << "ELEMENT COUNT: " << std::pow(10, i) <<std::endl;
+        std::cout << "-----------------------------" <<std::endl;
+        intTest(std::pow(10, i), files, 1);
+    }
+
+    // High load factor
+    for(int i=1; i<5; i++) {
+        std::cout << "-----------------------------" <<std::endl;
+        std::cout << "ELEMENT COUNT: " << std::pow(10, i) <<std::endl;
+        std::cout << "-----------------------------" <<std::endl;
+        intTest(std::pow(10, i), files, 2);
+    }
+}
+\end{lstlisting}
+
+Ogni iterazione invoca una funzione di test che genera una nuova istanza della classe \texttt{HashTable} con differenti parametri di configurazione.
+
+\begin{lstlisting}[language=C++, caption=Configurazione delle istanze]
+/*
+* HashTable:
+*   OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING
+*   HASH::MODE_1
+*   RESIZE::DOUBLE
+* 
+* Key::INTEGER
+* Value::INTEGER
+*/
+{
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "HashTable:" << std::endl;
+    std::cout << "  OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING" << std::endl;
+    std::cout << "  HASH::MODE_1" << std::endl;
+    std::cout << "  RESIZE::DOUBLE" << std::endl;
+    std::cout << "  Key::INTEGER" << std::endl;
+    std::cout << "  Value::INTEGER" << std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+
+    HashTable<int, int> HashTable(OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING, HASH::MODE_1, RESIZE::DOUBLE, 256, linear_load_factor);
+    intTestRoutine(HashTable, elements, files.first, files.second);
+}
+{
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "HashTable:" << std::endl;
+    std::cout << "  OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING" << std::endl;
+    std::cout << "  HASH::MODE_1" << std::endl;
+    std::cout << "  RESIZE::DOUBLE" << std::endl;
+    std::cout << "  Key::INTEGER" << std::endl;
+    std::cout << "  Value::INTEGER" << std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+
+    HashTable<int, int> HashTable(OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING, HASH::MODE_1, RESIZE::DOUBLE, 256, linear_load_factor);
+    intTestRoutine(HashTable, elements, files.first, files.second, false);
+}
+\end{lstlisting}
+
+La routine di test procede inizialmente alla generazione dei dati da inserire e successivamente esegue una sequenza di operazioni selezionate 
+in modo pseudo-casuale secondo la seguente distribuzione:
+
+\begin{itemize}
+    \item 40\% \texttt{Exist}
+    \item 30\% \texttt{Insert}
+    \item 10\% \texttt{Update}
+    \item 10\% \texttt{Get}
+    \item 10\% \texttt{Remove}
+\end{itemize}
+
+Durante l'esecuzione, la routine può operare in due modalità:
+\begin{itemize}
+    \item \textbf{Modalità analitica}: ogni operazione viene registrata nel file \texttt{op\_data.csv};
+    \item \textbf{Modalità prestazionale}: le operazioni vengono eseguite senza logging dettagliato, al fine di evitare overhead e 
+    misurare accuratamente le prestazioni complessive, salvate in \texttt{hash\_data.csv}.
+\end{itemize}
+
+\begin{lstlisting}[language=C++, caption=Test routine]
+template <typename K, typename V>
+void intTestRoutine(HashTable<K, V>& HashTable, int elements, std::ofstream& file_hash, std::ofstream& file_op, bool mode = true) {
+    const int ELEMENTS = elements;
+    int errors = 0;
+    // Generatore di numeri casuali
+    std::vector<std::pair<int, int>> numbers;
+    numbers.reserve(ELEMENTS);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dist(1, ELEMENTS*10);
+
+    int value = 0;
+    for (int i = 0; i < ELEMENTS; ++i) {
+        value = dist(gen);
+        numbers.emplace_back(value, value);
+    }
+
+    struct timespec start, end;
+    if(!mode) {
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+    }
+
+    std::size_t counter = 0;
+    while(counter < numbers.size()) {
+        std::uniform_int_distribution<> dist2(0, 9);
+        switch(dist2(gen)) {
+            case 0:
+            case 1:
+            case 2:
+            case 3: {
+                // Exist
+                if(counter > 0) {
+                    std::uniform_int_distribution<> dist_temp(0, numbers.size() - 1);
+                    exist(HashTable, numbers[dist_temp(gen)].first, file_op, elements, mode);
+                }
+                break;
+            }
+            case 4:
+            case 5:
+            case 6: {
+                // Insert
+                insert(HashTable, numbers[counter], file_op, elements, mode);
+                counter++;
+                break;
+            }
+            case 7: {
+                // Update
+                if(counter > 0) {
+                    std::uniform_int_distribution<> dist_temp(0, numbers.size() - 1);
+                    update(HashTable, std::make_pair(numbers[dist_temp(gen)].first, dist(gen)), file_op, elements, mode);
+                }
+                break;
+            }
+            case 8: {
+                // Get
+                if(counter > 0) {
+                    std::uniform_int_distribution<> dist_temp(0, numbers.size() - 1);
+                    get(HashTable, numbers[dist_temp(gen)].first, file_op, elements, mode);
+                }
+                break;
+            }
+            case 9: {
+                // Remove
+                if(counter > 0) {
+                    std::uniform_int_distribution<> dist_temp(0, numbers.size() - 1);
+                    remove(HashTable, numbers[dist_temp(gen)].first, file_op, elements, mode);
+                }
+                break;
+            }
+        }
+    }
+
+    if(!mode) {
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+        double cpu_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+
+        csvHashPrint(
+            file_hash,
+            HashTable.getOverflow(),
+            HashTable.getHash(),
+            HashTable.getResize(),
+            elements,
+            HashTable.getMaxLoadFactor(),
+            cpu_time,
+            HashTable.maxMemoryUsage()
+        );
+    }
+}
+\end{lstlisting}
+
+Ogni operazione eseguita sulla struttura (inserimento, ricerca, aggiornamento e rimozione) misura il tempo di esecuzione e, se abilitato, 
+registra i risultati nel file \texttt{op\_data.csv}, includendo anche metriche dinamiche come il fattore di carico e la distribuzione delle chiavi.
+
+\begin{lstlisting}[language=C++, caption=Esempio operazione]
+template <typename K, typename V>
+void insert(HashTable<K, V>& hashTable, const std::pair<K, V>& arr, std::ofstream& file, int elements, bool print = true) {
+    if(print) {
+        struct timespec start, end;
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+
+        hashTable.insert(arr.first, arr.second);
+
+        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+        double cpu_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+
+        csvOperationPrint(
+            file,
+            hashTable.getOverflow(),
+            hashTable.getHash(),
+            hashTable.getResize(),
+            elements,
+            hashTable.getMaxLoadFactor(),
+            "INSERT",
+            cpu_time,
+            hashTable.getLoadFactor(),
+            hashTable.memoryUsage(),
+            hashTable.getKeyDistribution()
+        );
+    } else {
+        hashTable.insert(arr.first, arr.second);
+        hashTable.memoryUsage();
+    }
+}
+\end{lstlisting}
+
+Il build dell'apparato di testing viene seguito con i seguenti parametri di ottimizzazione
+
+\begin{lstlisting}[language=bash, caption=Parametri compilazione]
+g++ -O3 -march=native -flto -std=c++20 intTest.cpp -o ./build/intTest 
+\end{lstlisting}

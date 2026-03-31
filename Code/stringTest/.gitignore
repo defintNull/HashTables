@@ -1,0 +1,6 @@
+/build
+/build/*
+hash_data.csv
+op_data.csv
+hash_data_double.csv
+op_data_double.csv

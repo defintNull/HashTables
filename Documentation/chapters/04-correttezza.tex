@@ -1,0 +1,129 @@
+\chapter{Correttezza}
+
+Il test di correttezza è stato implementato in \texttt{C++} all'interno del file \texttt{correctness.cpp}.
+
+Sono state considerate quattro diverse tipologie di dati:
+\texttt{integer}, \texttt{random strings}, \texttt{real words} e \texttt{hybrid}, 
+dove la chiave è di tipo \texttt{real word} e il valore è di tipo \texttt{integer}.
+
+Nel file è stata implementata una sezione di test per ognuna delle quattro tipologie di dato, 
+con l'obiettivo di verificare la correttezza delle operazioni fondamentali e di collezionare 
+eventuali errori riscontrati durante l'esecuzione.
+
+\begin{lstlisting}[language=C++, caption=Integer test]
+// Integer
+{
+    int errors = 0;
+    for(int x=0; x<20; x++) {
+        for(int i=0; i<6; i++) {
+            int current_error = intTest(std::pow(10, i));
+            std::cout << "Partial Operation Failed: " << current_error << std::endl;
+            std::cout << "-----------------------------" <<std::endl;
+            errors += current_error;
+        }
+    }
+    arr_error[0] += errors;
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "INTEGER ERRORS: " << errors << std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+}
+\end{lstlisting}
+
+Ogni tipologia di dato utilizza una funzione di test dedicata, che si occupa di verificare 
+il comportamento della struttura dati su diverse configurazioni di hash table. 
+Per ciascuna configurazione viene creata una nuova istanza della classe \texttt{HashTable}, 
+parametrizzata con le specifiche modalità di gestione delle collisioni, funzione di hash e strategia di ridimensionamento.
+
+Il test viene inoltre ripetuto più volte, variando il numero di elementi utilizzati, 
+al fine di ridurre l’impatto della casualità e ottenere risultati più affidabili.
+
+\begin{lstlisting}[language=C++, caption=Integer test function]
+/*
+* HashTable:
+*   OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING
+*   HASH::MODE_1
+*   RESIZE::DOUBLE
+* 
+* Key::INTEGER
+* Value::INTEGER
+*/
+{
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "HashTable:" << std::endl;
+    std::cout << "  OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING" << std::endl;
+    std::cout << "  HASH::MODE_1" << std::endl;
+    std::cout << "  RESIZE::DOUBLE" << std::endl;
+    std::cout << "  Key::INTEGER" << std::endl;
+    std::cout << "  Value::INTEGER" << std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+
+    HashTable<int, int> HashTable(OVERFLOW::OPEN_ADDRESSING_LINEAR_PROBING, HASH::MODE_1, RESIZE::DOUBLE);
+    errors += intTestRoutine(HashTable, elements);
+}
+\end{lstlisting}
+
+Per ogni configurazione viene eseguita una routine specifica, differenziata in base alla tipologia di dato, 
+che verifica la correttezza delle operazioni fondamentali della hash table.
+
+In particolare:
+\begin{itemize}
+    \item \textbf{Insert}: viene verificato che ogni elemento inserito sia effettivamente memorizzato nella struttura e accessibile 
+    tramite operazione di ricerca (\texttt{find}).
+    \item \textbf{Update}: viene controllato che i valori associati alle chiavi siano correttamente aggiornati.
+    \item \textbf{Remove}: viene verificato che gli elementi rimossi non siano più accessibili e che l’operazione non comprometta l’accesso agli altri 
+    dati presenti nella struttura.
+\end{itemize}
+
+\begin{lstlisting}[language=C++, caption=Integer test routine for insert operation]
+const int ELEMENTS = elements;
+int errors = 0;
+// Generatore di numeri casuali
+std::vector<std::pair<int, int>> numbers;
+numbers.reserve(ELEMENTS);
+
+std::random_device rd;
+std::mt19937 gen(rd());
+std::uniform_int_distribution<> dist(1, ELEMENTS*10);
+
+int value = 0;
+for (int i = 0; i < ELEMENTS; ++i) {
+    value = dist(gen);
+    numbers.emplace_back(value, value);
+}
+
+// Inserts
+{
+    std::cout << "-----------------------------" <<std::endl;
+    std::cout << "INSERT" <<std::endl;
+    std::cout << "-----------------------------" <<std::endl;
+    std::vector<std::pair<int, int>> failed;
+    failed = insert(HashTable, numbers);
+    errors += failed.size();
+    // Exist
+    failed = exist(HashTable, numbers);
+    errors += failed.size();
+    // Get
+    failed = get(HashTable, numbers);
+    errors += failed.size();
+}
+\end{lstlisting}
+
+Durante l’esecuzione dei test, il numero di errori riscontrati viene accumulato e riportato per ciascuna tipologia di dato e configurazione testata.
+
+L’esecuzione complessiva dei test non ha evidenziato errori, confermando la correttezza dell’implementazione delle operazioni fondamentali 
+della hash table nelle diverse configurazioni considerate.
+
+\begin{lstlisting}[language=C++, caption=Correctness test result]
+-----------------------------
+-----------------------------
+TOTAL ERRORS: 0
+-----------------------------
+INTEGER ERRORS: 0
+STRING ERRORS: 0
+REAL WORD ERRORS: 0
+HYBRID ERRORS: 0
+-----------------------------
+-----------------------------
+\end{lstlisting}

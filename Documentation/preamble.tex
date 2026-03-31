@@ -1,0 +1,48 @@
+% Lingua
+\usepackage[italian]{babel}
+
+% Encoding
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{csquotes}
+
+% Matematica
+\usepackage{amsmath, amssymb}
+
+% Immagini
+\usepackage{graphicx}
+\graphicspath{{images/}}
+\usepackage{subcaption}
+\usepackage{float}
+
+% Link cliccabili
+\usepackage{hyperref}
+
+% Code Blocks
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny,
+    stepnumber=1,
+    frame=single,
+    breaklines=true,
+    inputencoding=utf8,
+    extendedchars=true,
+    literate=
+        {à}{{\`a}}1
+        {è}{{\`e}}1
+        {é}{{\'e}}1
+        {ì}{{\`i}}1
+        {ò}{{\`o}}1
+        {ù}{{\`u}}1
+}
+
+% Bibliografia
+\usepackage[backend=biber]{biblatex}
+\addbibresource{bibliography/references.bib}

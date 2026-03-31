@@ -1,0 +1,157 @@
+\chapter{Analisi del problema}
+
+\section{L'algoritmo}
+Le hash table nascono per rispondere all'esigenza di memorizzare grandi quantità di dati garantendo, nel caso medio, una complessità 
+temporale pari a $O(1)$ per le operazioni di \texttt{search}, \texttt{insert} e \texttt{delete}.
+
+L'idea di base consiste nel memorizzare dati organizzati in coppie chiave-valore all'interno di un array. Tale struttura consente l'accesso 
+diretto agli elementi in tempo costante, sfruttando un indice calcolato tramite una funzione apposita, detta funzione di hash.
+
+La funzione di hash ha il compito di trasformare una chiave in un indice dell'array in tempo $O(1)$. Una volta ottenuto l'indice, 
+è possibile accedere direttamente alla posizione corrispondente nell'array, mantenendo quindi il tempo di accesso costante.
+
+Affinché tutte le operazioni possano essere eseguite in tempo $O(1)$ anche nel caso peggiore, sarebbe necessario disporre di una funzione 
+di hash perfetta, in grado di evitare completamente le collisioni (ovvero i casi in cui chiavi diverse producono lo stesso indice), 
+e di uno spazio di memoria illimitato, così da non dover mai effettuare operazioni di ridimensionamento della struttura.
+
+Tuttavia, tali condizioni ideali non sono realisticamente raggiungibili. Nella pratica, è necessario adottare opportune tecniche di gestione 
+delle collisioni e strategie di ridimensionamento (resize). Grazie a queste soluzioni, è possibile garantire che, nel caso medio, 
+le operazioni fondamentali mantengano una complessità $O(1)$, mentre nel caso peggiore possano degradare fino a $O(n)$.
+
+\section{Strategie di gestione conflitti}
+Nel lavoro effettuato sono state prese in considerazione quattro strategie di gestione dei conflitti, ovvero
+\texttt{OPEN\_ADDRESSING\_LINEAR\_PROBING}, \break
+\texttt{OPEN\_ADDRESSING\_DOUBLE\_HASHING},
+\texttt{CHAINING} e \texttt{CUCKOO}.
+
+\subsection{Open Addressing: Linear Probing}
+
+L’open addressing è una tecnica di risoluzione delle collisioni in cui ogni elemento viene memorizzato direttamente nell’array dei bucket 
+e la gestione delle collisioni avviene tramite probing (sondaggio).
+
+Il \textit{linear probing} consiste nell’esaminare i bucket in modo sequenziale, partendo dalla posizione calcolata dalla funzione di hash e 
+proseguendo linearmente (posizioni successive), finché non si trova la posizione desiderata.
+
+Quando si deve inserire un nuovo elemento, i bucket vengono esaminati a partire dalla posizione calcolata dalla funzione di hash e si procede linearmente fino a trovare uno slot libero.
+
+Quando si cerca un elemento, si segue la stessa sequenza di probing, finché non si trova il record desiderato oppure uno slot vuoto, 
+il che indica che l’elemento non è presente nella tabella.
+
+Questa tecnica ha complessità nel caso medio pari a $O(1)$, mentre nel caso peggiore è $O(n)$, in quanto potrebbe essere necessario scandire 
+l’intero array. Le prestazioni dipendono fortemente dal fattore di carico $\alpha = \frac{n}{m}$ della tabella, che rappresenta il rapporto 
+tra il numero di celle occupate e il numero di posizioni disponibili. Tipicamente, tale valore viene mantenuto nell’intervallo 0.6–0.75 
+per garantire buone prestazioni.
+
+\subsection{Open Addressing: Double Hashing}
+
+L’open addressing è una tecnica di risoluzione delle collisioni in cui ogni elemento viene memorizzato direttamente nell’array dei bucket 
+e la gestione delle collisioni avviene tramite probing (sondaggio).
+
+Il \textit{double hashing} è una tecnica di probing avanzata, in cui la sequenza di posizioni da esaminare dipende da due funzioni di hash. 
+La prima funzione di hash $h_1(k)$ determina la posizione iniziale del bucket, mentre la seconda funzione $h_2(k)$ definisce l’incremento 
+per gli step successivi. Le posizioni da esaminare vengono calcolate come:
+\[
+(h_1(k) + i \cdot h_2(k)) \mod m, \quad i = 0, 1, 2, \dots
+\]
+
+Quando si deve inserire un nuovo elemento, si parte dalla posizione calcolata da $h_1(k)$ e, in caso di collisione, si procede seguendo 
+la sequenza definita dalla combinazione di $h_1$ e $h_2$ fino a trovare uno slot libero.
+
+Quando si cerca un elemento, si segue la stessa sequenza di probing. La ricerca termina quando si trova il record desiderato oppure uno 
+slot vuoto, indicando che l’elemento non è presente nella tabella.
+
+È fondamentale che $h_2(k)$ sia coprima con la dimensione dell’array $m$, altrimenti non tutte le posizioni disponibili potrebbero essere 
+visitabili. Se $h_2(k)$ e $m$ non sono coprime, alcune posizioni rimarrebbero escluse dalla sequenza di probing, riducendo l’efficienza 
+della tabella e aumentando il rischio di collisioni non risolvibili.
+
+Il \textit{double hashing} riduce significativamente il problema del \textit{primary clustering} presente nel linear probing, poiché la 
+sequenza di probing varia a seconda della chiave.
+
+Questa tecnica ha complessità nel caso medio pari a $O(1)$, mentre nel caso peggiore può arrivare a $O(n)$. Le prestazioni dipendono fortemente 
+dal fattore di carico $\alpha = \frac{n}{m}$, che rappresenta il rapporto tra il numero di celle occupate e il numero di posizioni disponibili. 
+Tipicamente, tale valore viene mantenuto nell’intervallo 0.6–0.75 per garantire buone prestazioni.
+
+\subsection{Chaining}
+
+Il \textit{chaining} è una tecnica di risoluzione delle collisioni in cui ogni bucket dell’array non contiene un solo elemento, 
+ma una lista (tipicamente una linked list) di tutti gli elementi che hashano nella stessa posizione.
+
+Quando si deve inserire un nuovo elemento, si calcola la posizione tramite la funzione di hash $h(k)$ e si aggiunge l’elemento 
+alla lista presente in quel bucket. In questo modo, anche se più elementi hashano nella stessa posizione, tutti possono essere memorizzati 
+senza dover spostare altri elementi nell’array.
+
+Quando si cerca un elemento, si calcola la posizione tramite $h(k)$ e si scorre la lista associata al bucket fino a trovare il record 
+desiderato o fino a raggiungere la fine della lista, che indica che l’elemento non è presente.
+
+Il chaining evita il problema del \textit{primary clustering} presente nelle tecniche di open addressing, poiché ogni bucket può 
+contenere un numero illimitato di elementi hashati nella stessa posizione. Tuttavia, le prestazioni dipendono dalla lunghezza media delle liste.
+
+La complessità nel caso medio per ricerca, inserimento o cancellazione è $O(1 + \alpha)$, dove $\alpha = n/m$ è il fattore di carico della tabella, 
+cioè il rapporto tra il numero totale di elementi $n$ e il numero di bucket $m$. Nel caso peggiore, se tutti gli elementi hashano nello 
+stesso bucket, la complessità può arrivare a $O(n)$, ma questo scenario è raro se la funzione di hash distribuisce bene gli elementi.
+
+Questa tecnica è particolarmente efficace quando il numero di elementi da memorizzare non è noto a priori o quando il fattore di carico 
+può superare 1, cosa che non è possibile con l’open addressing senza ridimensionare la tabella. Tipicamente, tale valore viene mantenuto 
+nell’intervallo 1–3 per garantire buone prestazioni.
+
+\subsection{Cuckoo Hashing}
+
+Il \textit{Cuckoo Hashing} è una tecnica di risoluzione delle collisioni che utilizza due (o più) funzioni di hash e due tabelle separate. 
+Ogni elemento può essere memorizzato in una sola posizione per ciascuna funzione di hash, e in caso di collisione un elemento “scaccia” quello 
+già presente nella posizione, il quale viene reinserito nella sua posizione alternativa calcolata dalla seconda funzione di hash.
+
+Quando si deve inserire un nuovo elemento, si calcola la prima posizione tramite $h_1(k)$.  
+- Se lo slot è libero, l’elemento viene inserito.  
+- Se lo slot è occupato, l’elemento corrente viene “espulso” e inserito nella sua posizione alternativa calcolata da $h_2(k)$.  
+Questo processo di spostamento può ripetersi fino a che tutti gli elementi trovano una posizione libera o fino a raggiungere un limite massimo di spostamenti.  
+In quest’ultimo caso, la tabella viene ridimensionata o le funzioni di hash vengono ricalcolate.
+
+Quando si cerca un elemento, basta controllare le posizioni calcolate da $h_1(k)$ e $h_2(k)$; se l’elemento non è presente in nessuna delle due, 
+significa che non è nella tabella. Questa caratteristica garantisce che la ricerca sia sempre $O(1)$ nel caso peggiore.
+
+Il Cuckoo Hashing evita il problema del \textit{primary clustering} presente nel linear probing, e mantiene un fattore di carico relativamente alto 
+senza compromettere le prestazioni di ricerca. Tuttavia, le operazioni di inserimento possono richiedere più spostamenti e, in casi rari, 
+il ridimensionamento della tabella.
+
+La complessità media di ricerca è $O(1)$, così come nel caso peggiore, mentre l’inserimento ha complessità media $O(1)$ ma nel caso peggiore 
+può richiedere più operazioni di spostamento o un ridimensionamento della tabella. Tipicamente, il fattore di carico $\alpha = n/m$ viene mantenuto 
+nell’intervallo 0.4–0.6 per garantire buone prestazioni e ridurre il numero di cicli di spostamento.
+
+
+\section{Strategie di Resizing}
+
+Nel lavoro effettuato sono state prese in considerazione tre strategie di \textit{resize}, ovvero:  
+\texttt{DOUBLE}, \texttt{CONSTANT} e \texttt{DYNAMIC}.  
+Queste strategie definiscono come la dimensione della tabella hash viene aumentata quando il fattore di carico supera un certo valore soglia.
+
+\subsection{Double}
+
+La strategia \texttt{DOUBLE} consiste nel raddoppiare la dimensione della tabella ogni volta che il fattore di carico supera una soglia prefissata.  
+Quando avviene il \textit{resize}, tutti gli elementi vengono re-inseriti nella nuova tabella utilizzando la stessa funzione di hash.  
+Questo approccio è semplice e garantisce che il fattore di carico torni ad essere basso dopo ogni ridimensionamento.  
+Tuttavia, il costo dell’operazione di raddoppio può essere elevato, poiché tutti gli elementi devono essere reinseriti.
+
+\subsection{Constant}
+
+La strategia \texttt{CONSTANT} prevede di aumentare la dimensione della tabella di un valore fisso ogni volta che il fattore di carico supera la soglia.  
+Questo approccio distribuisce il costo del \textit{resize} in modo più uniforme rispetto al raddoppio, ma può comportare più operazioni 
+di resize se la crescita del numero di elementi è elevata.  
+È utile quando si prevede una crescita lineare del numero di elementi nella tabella.
+
+\subsection{Dynamic}
+
+La strategia \texttt{DYNAMIC} prevede il raddoppio della dimensione della tabella, come nella strategia \texttt{DOUBLE}, 
+ma lo spostamento degli elementi avviene in modo incrementale.  
+In pratica, non tutti gli elementi vengono copiati nella nuova tabella immediatamente, ma viene spostato un \textit{chunk} di elementi 
+ad ogni operazione di inserimento o ricerca, fino a completare il trasferimento di tutti gli elementi dalla vecchia tabella a quella nuova.
+
+Quando si cerca un elemento durante il periodo di trasferimento, si procede nel seguente modo:
+\begin{itemize}
+    \item Si cerca prima nella nuova tabella.
+    \item Se non è presente, si cerca nella vecchia tabella.
+    \item Se l’elemento è trovato nella vecchia tabella, viene copiato nella nuova.
+\end{itemize}
+
+Questa tecnica permette di distribuire il costo del ridimensionamento su più operazioni, evitando picchi di tempo elevati durante un singolo inserimento.  
+Mantiene le prestazioni di ricerca e inserimento prossime a $O(1)$ anche durante il processo di resizing, 
+rendendola più efficiente rispetto al raddoppio immediato della strategia \texttt{DOUBLE}.
