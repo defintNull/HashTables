@@ -23,6 +23,6 @@ Il progetto ha l'obiettivo di proporre un'implementazione in C++ delle hashtable
 Per utilizzare il progetto, consultare i file README presenti nelle rispettive cartelle.
 
 La relazione completa del progetto è disponibile al seguente percorso:
-Documentation/build/main.pdf
+Documentation/Documentation.pdf
 
 ---
